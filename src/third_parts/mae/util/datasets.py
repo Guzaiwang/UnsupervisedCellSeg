@@ -80,16 +80,18 @@ class CellDataset(data.Dataset):
     std = np.array([0.28863828, 0.27408164, 0.27809835],
                    dtype=np.float32).reshape(1, 1, 3)
 
-    def __init__(self, img_folder, transform):
+    def __init__(self, root_folder, transform):
         # img_folder = '/home/zaiwang/Data/Cell_split/Lung5_Rep1/nuclear'
         self.img_name = []
         self.transformer = transform
-        for sub_folder in os.listdir(img_folder):
-            sub_folder_path = os.path.join(img_folder, sub_folder)
-            for img_name in os.listdir(sub_folder_path):
-                img_path = os.path.join(sub_folder_path, img_name)
-                if os.path.exists(img_path):
-                    self.img_name.append(img_path)
+        for sub_folder in os.listdir(root_folder):
+            img_folder = os.path.join(root_folder, sub_folder, 'nuclear')
+            for sub_folder in os.listdir(img_folder):
+                sub_folder_path = os.path.join(img_folder, sub_folder)
+                for img_name in os.listdir(sub_folder_path):
+                    img_path = os.path.join(sub_folder_path, img_name)
+                    if os.path.exists(img_path):
+                        self.img_name.append(img_path)
         print("this dataset has {} images".format(len(self.img_name)))
 
     def __getitem__(self, index):

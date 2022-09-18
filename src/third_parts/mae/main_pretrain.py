@@ -130,7 +130,7 @@ def main(args):
     # dataset_train = datasets.ImageFolder(
     #     os.path.join(args.data_path, 'train'), transform=transform_train
     # )
-    cell_path = '/home/zaiwang/Data/Cell_split/Lung5_Rep1/nuclear'
+    cell_path = '/home/zaiwang/Data/Cell_split'
     dataset_train = CellDataset(cell_path, transform_train)
     print('dataset_train is :', dataset_train)
 
