@@ -19,6 +19,7 @@ from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
 import torch.utils.data as data
 import numpy as np
+import torch
 
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -96,14 +97,22 @@ class CellDataset(data.Dataset):
 
     def __getitem__(self, index):
         img_path = self.img_name[index]
-        with open(img_path, 'rb') as f:
-            img = PIL.Image.open(f)
-            img = img.convert('RGB')
 
-        if self.transformer is not None:
-            img = self.transformer(img)
+        img = PIL.Image.open(img_path)
+        img = np.array(img) / 100.
+        # img = cv2.imread(str(img_path), flags=cv2.IMREAD_ANYDEPTH).astype(np.float32)/100.
+        img = cv2.resize(img, (224, 224))
+        img = np.expand_dims(img, axis=2)
+        img = np.tile(img, (1,1,3))
+        img = np.transpose(img, (2, 0, 1))/655.36
+        # with open(img_path, 'rb') as f:
+        #     img = PIL.Image.open(f)
+        #     img = img.convert('RGB')
+        #
+        # if self.transformer is not None:
+        #     img = self.transformer(img)
 
-        return img, img
+        return torch.from_numpy(img).float(), torch.from_numpy(img).float()
 
     def __len__(self):
         return len(self.img_name)
