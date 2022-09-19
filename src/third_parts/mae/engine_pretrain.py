@@ -17,6 +17,8 @@ import torch
 import util.misc as misc
 import util.lr_sched as lr_sched
 
+import numpy as np
+
 
 def train_one_epoch(model: torch.nn.Module,
                     data_loader: Iterable,
@@ -50,7 +52,8 @@ def train_one_epoch(model: torch.nn.Module,
         samples = samples.to(device, non_blocking=True)
 
         with torch.cuda.amp.autocast():
-            loss, _, _ = model(samples, mask_ratio=args.mask_ratio)
+            loss, pred, mask = model(samples, mask_ratio=args.mask_ratio)
+
 
         loss_value = loss.item()
 
@@ -81,6 +84,30 @@ def train_one_epoch(model: torch.nn.Module,
             epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
             log_writer.add_scalar('train_loss', loss_value_reduce, epoch_1000x)
             log_writer.add_scalar('lr', lr, epoch_1000x)
+            # sample_images = ((samples[0, 0, :, :].cpu().numpy() * 0.229 + 0.485) * 255).astype(np.uint8)
+            sample_images = torch.einsum('nchw->nhwc', samples).detach().cpu().numpy()
+            print("sample image shape is ", np.shape(sample_images))
+            sample_images = (sample_images[0,:,:,:] * 0.229 + 0.485) * 255
+            log_writer.add_image('train/train_img.png', sample_images.astype(np.uint8), dataformats='HWC')
+
+            y = model.unpatchify(pred)
+            y = torch.einsum('nchw->nhwc', y).detach().cpu().numpy()
+            # print(np.shape(y))
+            print("y shape is ", np.shape(y))
+            y = (y[0,:,:,:] * 0.229 + 0.485) * 255
+            y = y.astype(np.uint8)
+            # print(np.shape(y))
+            log_writer.add_image('train/pred_img.png', y, dataformats='HWC')
+
+
+            # visualize the mask
+            mask = mask.detach()
+            mask = mask.unsqueeze(-1).repeat(1, 1, model.patch_embed.patch_size[0] ** 2 * 3)  # (N, H*W, p*p*3)
+            mask = model.unpatchify(mask)  # 1 is removing, 0 is keeping
+            mask = torch.einsum('nchw->nhwc', mask).detach().cpu().numpy()
+            print("mask is ", np.shape(mask))
+            mask = sample_images.astype(np.uint8) * (1-mask[0, :, :, :].astype(np.uint8))
+            log_writer.add_image('train/mask_img.png', mask.astype(np.uint8), dataformats='HWC')
 
 
     # gather the stats from all processes
@@ -88,5 +115,3 @@ def train_one_epoch(model: torch.nn.Module,
     print("Averaged stats:", metric_logger)
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-
-

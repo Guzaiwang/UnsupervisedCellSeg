@@ -13,6 +13,7 @@ import os
 import PIL
 import cv2
 from torchvision import datasets, transforms
+from PIL import Image
 
 from timm.data import create_transform
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
@@ -22,6 +23,7 @@ import numpy as np
 import torch
 
 from PIL import ImageFile
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
@@ -76,16 +78,22 @@ def build_transform(is_train, args):
 class CellDataset(data.Dataset):
     num_classes = 1
     default_resolution = [448, 448]
-    mean = np.array([0.40789654, 0.44719302, 0.47026115],
+    # mean = np.array([0.40789654, 0.44719302, 0.47026115],
+    #                 dtype=np.float32).reshape(1, 1, 3)
+    # std = np.array([0.28863828, 0.27408164, 0.27809835],
+    #                dtype=np.float32).reshape(1, 1, 3)
+
+    mean = np.array([0.40789654, 0.40789654, 0.40789654],
                     dtype=np.float32).reshape(1, 1, 3)
-    std = np.array([0.28863828, 0.27408164, 0.27809835],
+    std = np.array([0.27809835, 0.27809835, 0.27809835],
                    dtype=np.float32).reshape(1, 1, 3)
 
     def __init__(self, root_folder, transform):
         # img_folder = '/home/zaiwang/Data/Cell_split/Lung5_Rep1/nuclear'
         self.img_name = []
         self.transformer = transform
-        for sub_folder in os.listdir(root_folder):
+        # for sub_folder in os.listdir(root_folder):
+        for sub_folder in ['Lung5_Rep1']:
             img_folder = os.path.join(root_folder, sub_folder, 'nuclear')
             for sub_folder in os.listdir(img_folder):
                 sub_folder_path = os.path.join(img_folder, sub_folder)
@@ -99,20 +107,14 @@ class CellDataset(data.Dataset):
         img_path = self.img_name[index]
 
         img = PIL.Image.open(img_path)
-        img = np.array(img) / 100.
-        # img = cv2.imread(str(img_path), flags=cv2.IMREAD_ANYDEPTH).astype(np.float32)/100.
-        img = cv2.resize(img, (224, 224))
-        img = np.expand_dims(img, axis=2)
-        img = np.tile(img, (1,1,3))
-        img = np.transpose(img, (2, 0, 1))/655.36
-        # with open(img_path, 'rb') as f:
-        #     img = PIL.Image.open(f)
-        #     img = img.convert('RGB')
-        #
-        # if self.transformer is not None:
-        #     img = self.transformer(img)
+        img = np.array(img) / 65536. * 255
+        img = np.tile(np.expand_dims(img, axis=2), (1, 1, 3))
+        img = Image.fromarray(img.astype(np.uint8))
 
-        return torch.from_numpy(img).float(), torch.from_numpy(img).float()
+        if self.transformer is not None:
+            img = self.transformer(img)
+
+        return img, img
 
     def __len__(self):
         return len(self.img_name)
