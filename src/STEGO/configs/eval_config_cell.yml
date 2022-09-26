@@ -1,0 +1,22 @@
+output_root: '../'
+pytorch_data_dir: '/home/zaiwang/Data/Cell_split/Lung5_Rep1/nuclear'
+pytorch_save_data_dir: '/home/zaiwang/Data/Cell_split/Lung5_Rep1/'
+experiment_name: "exp1"
+res: 320
+batch_size: 8
+num_workers: 12
+run_picie: True
+run_crf: True
+run_prediction: True
+dark_mode: True
+use_ddp: False
+
+model_paths:
+  - "/home/zaiwang/workspace/UnsupervisedCellSeg/src/checkpoints/Cell/cell_exp1_date_Sep25_18-51-45/epoch=38-step=13999.ckpt"
+
+hydra:
+  run:
+    dir: "."
+  output_subdir: ~
+  #job_logging: "disabled"
+  #hydra_logging: "disabled"

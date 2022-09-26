@@ -12,7 +12,9 @@ from tqdm import tqdm
 from train_segmentation import LitUnsupervisedSegmenter, prep_for_plot, get_class_labels
 
 torch.multiprocessing.set_sharing_strategy('file_system')
+import warnings
 
+warnings.filterwarnings("ignore")
 def plot_cm(histogram, label_cmap, cfg):
     fig = plt.figure(figsize=(10, 10))
     ax = fig.gca()
@@ -54,7 +56,7 @@ def batched_crf(pool, img_tensor, prob_tensor):
     return torch.cat([torch.from_numpy(arr).unsqueeze(0) for arr in outputs], dim=0)
 
 
-@hydra.main(config_path="configs", config_name="eval_config.yml")
+@hydra.main(config_path="configs", config_name="eval_config_cell.yml")
 def my_app(cfg: DictConfig) -> None:
     pytorch_data_dir = cfg.pytorch_data_dir
     result_dir = "../results/predictions/{}".format(cfg.experiment_name)
@@ -109,6 +111,10 @@ def my_app(cfg: DictConfig) -> None:
             # all_good_images = range(80)
             # all_good_images = [ 5, 20, 56]
             all_good_images = [11, 32, 43, 52]
+        elif model.cfg.dataset_name == "cell":
+            # all_good_images = range(80)
+            # all_good_images = [ 5, 20, 56]
+            all_good_images = range(10)
         else:
             raise ValueError("Unknown Dataset {}".format(model.cfg.dataset_name))
         batch_nums = torch.tensor([n // (cfg.batch_size * 2) for n in all_good_images])
@@ -117,6 +123,8 @@ def my_app(cfg: DictConfig) -> None:
         saved_data = defaultdict(list)
         # with Pool(cfg.num_workers + 5) as pool:
         for i, batch in enumerate(tqdm(test_loader)):
+            if i == 10:
+                break
             with torch.no_grad():
                 img = batch["img"].cuda()
                 label = batch["label"].cuda()
@@ -129,7 +137,6 @@ def my_app(cfg: DictConfig) -> None:
 
                 linear_probs = torch.log_softmax(model.linear_probe(code), dim=1)
                 cluster_probs = model.cluster_probe(code, 2, log_probs=True)
-                print(linear_probs)
                 cfg.run_crf = False
                 if cfg.run_crf:
                     linear_preds = batched_crf(pool, img, linear_probs).argmax(1).cuda()
@@ -180,21 +187,27 @@ def my_app(cfg: DictConfig) -> None:
             # fig, ax = plt.subplots(n_rows, len(good_images), figsize=(len(good_images) * 3, n_rows * 3))
             for i, img_num in enumerate(good_images):
                 plot_img = (prep_for_plot(saved_data["img"][img_num]) * 255).numpy().astype(np.uint8)
-                plot_label = (model.label_cmap[saved_data["label"][img_num]]).astype(np.uint8)
+                #plot_label = (model.label_cmap[saved_data["label"][img_num]]).astype(np.uint8)
                 Image.fromarray(plot_img).save(join(join(result_dir, "img", str(img_num) + ".jpg")))
-                Image.fromarray(plot_label).save(join(join(result_dir, "label", str(img_num) + ".png")))
+                #Image.fromarray(plot_label).save(join(join(result_dir, "label", str(img_num) + ".png")))
 
                 # ax[0, i].imshow(plot_img)
                 # ax[1, i].imshow(plot_label)
-                print("cfg run_prediction is ", cfg.run_prediction)
                 if cfg.run_prediction:
+                    result_cluster = model.test_cluster_metrics.map_clusters(saved_data["cluster_preds"][img_num])
+                    print(np.unique(result_cluster))
                     plot_cluster = (model.label_cmap[
                         model.test_cluster_metrics.map_clusters(
                             saved_data["cluster_preds"][img_num])]) \
                         .astype(np.uint8)
                     Image.fromarray(plot_cluster).save(join(join(result_dir, "cluster", str(img_num) + ".png")))
+                    import matplotlib.pyplot as plt
+                    plt.imshow(result_cluster.cpu().numpy()*255)
+                    plt.savefig(join(join(result_dir, "cluster", str(img_num) + "_.png")))
                     # ax[2, i].imshow(plot_cluster)
                 if run_picie:
+                    result_picie = saved_data["picie_preds"][img_num]
+                    print(np.unique(result_picie))
                     picie_img = model.label_cmap[saved_data["picie_preds"][img_num]].astype(np.uint8)
                     # ax[3, i].imshow(picie_img)
                     Image.fromarray(picie_img).save(join(join(result_dir, "picie", str(img_num) + ".png")))

@@ -1,17 +1,18 @@
 output_root: '../'
 pytorch_data_dir: '/home/zaiwang/Data/Cell_split/Lung5_Rep1/nuclear'
+pytorch_save_data_dir: '/home/zaiwang/Data/Cell_split/Lung5_Rep1/'
 experiment_name: "exp1"
-log_dir: "cocostuff27"
+log_dir: "Cell"
 azureml_logging: True
 submitting_to_aml: False
 
 # Loader params
-num_workers: 24
-max_steps: 5000
+num_workers: 8
+max_steps: 50000
 batch_size: 16
 
 num_neighbors: 7
-dataset_name: "cocostuff27"
+dataset_name: "cell"
 
 # Used if dataset_name is "directory"
 dir_dataset_name: ~

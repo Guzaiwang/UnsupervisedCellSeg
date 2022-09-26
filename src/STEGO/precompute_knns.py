@@ -21,11 +21,14 @@ def get_feats(model, loader):
     return torch.cat(all_feats, dim=0).contiguous()
 
 
-@hydra.main(config_path="configs", config_name="train_config.yml")
+@hydra.main(config_path="configs", config_name="train_config_cell.yml")
 def my_app(cfg: DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
     pytorch_data_dir = cfg.pytorch_data_dir
+    pytorch_save_data_dir = cfg.pytorch_save_data_dir
+    print(pytorch_save_data_dir)
     data_dir = join(cfg.output_root, "data")
+    print("data_dir", data_dir)
     log_dir = join(cfg.output_root, "logs")
     os.makedirs(data_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
@@ -37,8 +40,8 @@ def my_app(cfg: DictConfig) -> None:
     print(cfg.output_root)
 
     image_sets = ["val", "train"]
-    dataset_names = ["cocostuff27"]
-    crop_types = ["five", None]
+    dataset_names = ["cell"]
+    crop_types = ["five"]
 
     # Uncomment these lines to run on custom datasets
     #dataset_names = ["directory"]
@@ -63,8 +66,11 @@ def my_app(cfg: DictConfig) -> None:
             for dataset_name in dataset_names:
                 nice_dataset_name = cfg.dir_dataset_name if dataset_name == "directory" else dataset_name
 
-                feature_cache_file = join(pytorch_data_dir, "nns", "nns_{}_{}_{}_{}_{}.npz".format(
+                feature_cache_file = join(pytorch_save_data_dir, "nns", "nns_{}_{}_{}_{}_{}.npz".format(
                     cfg.model_type, nice_dataset_name, image_set, crop_type, res))
+                nns_save_path = feature_cache_file.replace(feature_cache_file.split('/')[-1], '')
+                os.makedirs(nns_save_path, exist_ok=True)
+                print("the nns save path:{} has been created".format(nns_save_path))
 
                 if not os.path.exists(feature_cache_file):
                     print("{} not found, computing".format(feature_cache_file))
@@ -78,7 +84,7 @@ def my_app(cfg: DictConfig) -> None:
                         cfg=cfg,
                     )
 
-                    loader = DataLoader(dataset, 256, shuffle=False, num_workers=cfg.num_workers, pin_memory=False)
+                    loader = DataLoader(dataset, 16, shuffle=False, num_workers=cfg.num_workers, pin_memory=False)
 
                     with torch.no_grad():
                         normed_feats = get_feats(par_model, loader)
@@ -95,7 +101,8 @@ def my_app(cfg: DictConfig) -> None:
 
                         np.savez_compressed(feature_cache_file, nns=nearest_neighbors.numpy())
                         print("Saved NNs", cfg.model_type, nice_dataset_name, image_set)
-
+                else:
+                    print("the knn file exists.", feature_cache_file)
 
 if __name__ == "__main__":
     prep_args()

@@ -1,3 +1,4 @@
+import glob
 import os
 import random
 from os.path import join
@@ -11,7 +12,9 @@ from torch.utils.data import Dataset
 from torchvision.datasets.cityscapes import Cityscapes
 from torchvision.transforms.functional import to_pil_image
 from tqdm import tqdm
+from PIL import ImageFile
 
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 def bit_get(val, idx):
     """Gets the bit value.
@@ -116,6 +119,131 @@ class DirectoryDataset(Dataset):
 
     def __len__(self):
         return len(self.img_files)
+
+
+class CellCroppedDataset_bak(Dataset):
+    def __init__(self, root, dataset_name, crop_type, crop_ratio, image_set, transform, target_transform):
+        super(CellCroppedDataset_bak, self).__init__()
+        self.dataset_name = dataset_name
+        self.split = image_set
+        self.root = join('/home/zaiwang/Data/Cell_split/Lung5_Rep1', "cropped",
+                         "{}_{}_crop_{}".format(dataset_name, crop_type, crop_ratio))
+        self.transform = transform
+        self.target_transform = target_transform
+        self.img_folder = [join(root, folder_path) for folder_path in os.listdir(root)]
+        self.label_folder = [join(root, folder_path) for folder_path in os.listdir(root)]
+        self.img_names = []
+        self.labels_names = []
+
+        for folder_name in self.img_folder:
+            self.img_dir = folder_name
+            self.label_dir = folder_name
+            for img_name in os.listdir(self.img_dir):
+                img_path = os.path.join(self.img_dir, img_name)
+                label_path = os.path.join(self.label_dir, img_name)
+                self.img_names.append(img_path)
+                self.labels_names.append(label_path)
+
+        assert len(self.img_names) == len(self.labels_names)
+
+    def __getitem__(self, index):
+        image = Image.open(self.img_names[index])
+        image = np.array(image)
+        # print(np.max(image), np.min(image))
+        image = image / 65535
+        image = image * 255
+        image = np.tile(np.expand_dims(image, axis=2), (1, 1, 3))
+
+        image = Image.fromarray(image.astype(np.uint8))
+
+        # print(np.shape(image), np.max(image), np.min(image))
+        # image = Image.fromarray(image.astype(np.uint8))
+        # print(np.shape(image), np.max(image), np.min(image))
+        target = Image.open(self.labels_names[index])
+
+        seed = np.random.randint(2147483647)
+        random.seed(seed)
+        torch.manual_seed(seed)
+        image = self.transform(image)
+        random.seed(seed)
+        torch.manual_seed(seed)
+        target = self.target_transform(target)
+
+        target = target - 1
+        mask = target == -1
+        return image, target.squeeze(0), mask
+        # return image
+
+    def __len__(self):
+        return len(self.img_names)
+
+
+
+class CellCroppedDataset(Dataset):
+    def __init__(self, root, dataset_name, crop_type, crop_ratio, image_set, transform, target_transform):
+        super(CellCroppedDataset, self).__init__()
+        self.dataset_name = dataset_name
+        self.split = image_set
+
+        self.transform = transform
+        self.target_transform = target_transform
+
+        self.img_sets = ['Lung5_Rep1']
+        self.img_names = []
+        self.labels_names = []
+        self.img_folder = []
+        self.label_folder = []
+        for img_set in self.img_sets:
+            self.root = join('/home/zaiwang/Data/Cell_split/', img_set, "nuclear")
+            for folder_path in os.listdir(self.root):
+                self.img_folder.append(os.path.join(self.root, folder_path))
+                self.label_folder.append(os.path.join(self.root, folder_path))
+
+        print("this dataset has {} img folder".format(len(self.img_folder)))
+
+        for folder_name in self.img_folder:
+            self.img_dir = folder_name
+            self.label_dir = folder_name
+            for img_name in os.listdir(self.img_dir):
+                img_path = os.path.join(self.img_dir, img_name)
+                label_path = os.path.join(self.label_dir, img_name)
+                self.img_names.append(img_path)
+                self.labels_names.append(label_path)
+        print("this dataset has {} imgs".format(len(self.img_names)))
+
+        assert len(self.img_names) == len(self.labels_names)
+
+    def __getitem__(self, index):
+        image = Image.open(self.img_names[index])
+        image = np.array(image)
+        # print(np.max(image), np.min(image))
+        image = image / 65535
+        image = image * 255
+        image = np.tile(np.expand_dims(image, axis=2), (1, 1, 3))
+
+        image = Image.fromarray(image.astype(np.uint8))
+
+        # print(np.shape(image), np.max(image), np.min(image))
+        # image = Image.fromarray(image.astype(np.uint8))
+        # print(np.shape(image), np.max(image), np.min(image))
+        target = Image.open(self.labels_names[index])
+
+        seed = np.random.randint(2147483647)
+        random.seed(seed)
+        torch.manual_seed(seed)
+        image = self.transform(image)
+        random.seed(seed)
+        torch.manual_seed(seed)
+        target = self.target_transform(target)
+
+        target = target - 1
+        mask = target == -1
+        return image, target.squeeze(0), mask
+        # return image
+
+    def __len__(self):
+        return len(self.img_names)
+
 
 
 class Potsdam(Dataset):
@@ -372,6 +500,7 @@ class CroppedDataset(Dataset):
         super(CroppedDataset, self).__init__()
         self.dataset_name = dataset_name
         self.split = image_set
+        self.img_root = ''
         self.root = join(root, "cropped", "{}_{}_crop_{}".format(dataset_name, crop_type, crop_ratio))
         self.transform = transform
         self.target_transform = target_transform
@@ -448,6 +577,10 @@ class ContrastiveSegDataset(Dataset):
             self.n_classes = 3
             dataset_class = Potsdam
             extra_args = dict(coarse_labels=True)
+        elif dataset_name == 'cell':
+            self.n_classes = 2
+            dataset_class = CellCroppedDataset
+            extra_args = dict(dataset_name="cell", crop_type=cfg.crop_type, crop_ratio=cfg.crop_ratio)
         elif dataset_name == "potsdamraw":
             self.n_classes = 3
             dataset_class = PotsdamRaw
@@ -508,6 +641,8 @@ class ContrastiveSegDataset(Dataset):
             else:
                 loaded = np.load(feature_cache_file)
                 self.nns = loaded["nns"]
+            print(len(self.dataset))
+            print(self.nns.shape)
             assert len(self.dataset) == self.nns.shape[0]
 
     def __len__(self):
